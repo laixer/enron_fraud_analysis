@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Identifying persons of interest in Enron dataset"
 output: html_document
 ---
 
@@ -13,6 +13,8 @@ library(gridExtra)
 ```{r load_data, cache=TRUE}
 enron <- read.csv("final_project_dataset.csv", na.strings = "NaN")
 ```
+
+## Financials
 
 ```{r, message=FALSE, fig.width=10}
 ggplot(enron, aes(salary, fill=poi)) + 
@@ -39,42 +41,84 @@ enron <- enron %>%
 Replot the salary data.
 
 ```{r, message=FALSE, fig.width=10}
-ggplot(enron, aes(salary)) + 
-  geom_histogram(binwidth=20000) + 
-  facet_wrap(~ poi, ncol=2)
+ggplot(enron, aes(salary, fill=poi)) + 
+  geom_histogram(alpha=0.5, position="identity") +
+  scale_fill_brewer(palette="Set1")
 ```
 
-Salary doesn't seem like a particularly useful indicator.
+Looks better.
 
-```{r, messages=FALSE, fig.width=10, fig.height=40}
-g1 <- ggplot(enron, aes(deferral_payments, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
-g2 <- ggplot(enron, aes(total_payments, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
-g3 <- ggplot(enron, aes(exercised_stock_options, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
-g4 <- ggplot(enron, aes(bonus, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
-g5 <- ggplot(enron, aes(restricted_stock, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
-g6 <- ggplot(enron, aes(restricted_stock_deferred, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
-g7 <- ggplot(enron, aes(total_stock_value, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
-g8 <- ggplot(enron, aes(expenses, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
-g9 <- ggplot(enron, aes(other, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
-g10 <- ggplot(enron, aes(director_fees, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
-g11 <- ggplot(enron, aes(deferred_income, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
-g12 <- ggplot(enron, aes(long_term_incentive, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
+Let's plot all the financial features and see how they compare between POIs and
+non-POIs.
 
-grid.arrange(g1, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11, g12, ncol=1)
+```{r, messages=FALSE, warning=FALSE, fig.width=10, fig.height=40}
+financial_features=c(
+  "salary",
+  "deferral_payments",
+  "total_payments",
+  "exercised_stock_options",
+  "bonus",
+  "restricted_stock",
+  "restricted_stock_deferred",
+  "total_stock_value",
+  "expenses",
+  "other",
+  "director_fees",
+  "deferred_income",
+  "long_term_incentive"
+)
+
+plots = lapply(financial_features, function(feature) {
+  return(ggplot(enron, aes_string(feature, fill="poi")) + 
+           geom_histogram(alpha=0.5, position="identity"))
+})
+
+plots$ncol=1
+
+do.call(grid.arrange, plots)
 ```
 
-deferral_payments - noticeably different, worth a closer look
+deferral_payments - noticeably different, worth a closer look, weird to see a 
+value less than zero.
+
 total_payments - outlier worth a closer look
+
 exercised_stock_options - seems to be a feature worth trying
+
 bonus - worth a try, not clear how useful it will be
+
 restricted_stock - not interesting
+
 restricted_stock_deferred - not interesting
+
 total_stock_value - maybe
 expenses - not interesting
+
 other - outlier worth a closer look
+
 director_fees - not interesting
+
 deferred_income - maybe
+
 long_term_incentive - not interesting
+
+```{r, messages=FALSE, fig.width=10, fig.height=40}
+enron %>%
+  arrange(deferral_payments) %>%
+  select(name, deferral_payments) %>%
+  head()
+
+enron %>%
+  filter(name=="BELFER ROBERT")
+```
+
+The data for this person seems to be shifted columnwise. 
+Let's just ignore this row.
+
+```{r}
+enron <- enron %>%
+  filter(name!="BELFER ROBERT")
+```
 
 ```{r, messages=FALSE, fig.width=10, fig.height=40}
 enron %>%
@@ -98,6 +142,39 @@ good indicator.
 Let's try using deferral_payments, exercised_stock_options, bonus, 
 total_stock_value, deferred_income from financial features.
 
+What if we look at fraction of payments/stock by type?
+
+```{r, fig.width=10, fig.height=20}
+enron <- enron %>%
+  mutate(salary_pct=salary/total_payments,
+         bonus_pct=bonus/total_payments,
+         long_term_incentive_pct=long_term_incentive/total_payments,
+         deferral_payments_pct=deferral_payments/total_payments,
+         other_pct=other/total_payments,
+         expenses_pct=expenses/total_payments,
+         director_fees_pct=director_fees/total_payments)
+financial_features=c(
+  "salary_pct",
+  "bonus_pct",
+  "long_term_incentive_pct",
+  "deferral_payments_pct",
+  "other_pct",
+  "expenses_pct",
+  "director_fees_pct"
+)
+
+plots = lapply(financial_features, function(feature) {
+  return(ggplot(enron, aes_string(feature, fill="poi")) + 
+           geom_histogram(alpha=0.5, position="identity"))
+})
+plots$ncol=1
+
+do.call(grid.arrange, plots)
+```
+
+Overall, financial features appear to be weak indicators of POIs.
+
+## E-mails
 
 What about e-mail features?
 
@@ -107,7 +184,7 @@ from_messages
 from_this_person_to_poi
 from_poi_to_this_person
 
-```{r, messages=FALSE, fig.width=10, fig.height=40}
+```{r, messages=FALSE, fig.width=10, fig.height=20}
 g1 <- ggplot(enron, aes(to_messages, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
 g2 <- ggplot(enron, aes(shared_receipt_with_poi, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
 g3 <- ggplot(enron, aes(from_messages, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
@@ -116,3 +193,21 @@ g5 <- ggplot(enron, aes(from_poi_to_this_person, fill=poi)) + geom_histogram(alp
 
 grid.arrange(g1, g2, g3, g4, g5, ncol=1)
 ```
+
+None of these features look particularly interesting. 
+What if we look at the percentage of emails from/to POI?
+
+```{r}
+enron <- enron %>%
+  mutate(from_this_person_to_poi_pct = from_this_person_to_poi / from_messages,
+         from_poi_to_this_person_pct = from_poi_to_this_person / to_messages)
+```
+
+```{r}
+ggplot(enron, aes(from_this_person_to_poi_pct, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
+ggplot(enron, aes(from_poi_to_this_person_pct, fill=poi)) + geom_histogram(alpha=0.5, position="identity")
+```
+
+from_this_person_to_poi_pct might be useful, but again none of the email 
+features appear to be great indicators of POIs.
+
