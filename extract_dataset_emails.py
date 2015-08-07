@@ -30,6 +30,8 @@ for email in project_emails:
     any_poi = any(r in poi_email_addresses for r in email["recipients"])
     all_poi = all(r in poi_email_addresses for r in email["recipients"])
     email["stemmed_words"] = string.join(map(stemmer.stem, email["text"].split()))
+    email["any_poi"] = any_poi
+    email["all_poi"] = all_poi
     if any_poi:
         any_poi_messages += 1
     if all_poi:
