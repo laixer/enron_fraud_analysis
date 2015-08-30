@@ -1,5 +1,11 @@
+"""Generates a single pickle file from a maildir.
+
+Reads all the messages from a maildir and generates a single pickle file
+with all the e-mail and recipient information to make it easier to load
+and process.
+"""
+
 import email
-# from email.parser import Parser
 import os
 import cPickle
 
