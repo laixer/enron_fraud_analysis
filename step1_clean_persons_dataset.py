@@ -2,6 +2,11 @@
 
 Reads final_project_dataset.pkl and saves cleaned dataset to
 final_project_dataset_cleaned.pkl
+
+Cleaning removes outliers and transforms the dataset from a
+dict to an array of dict for easier usage.
+
+Outliers were found by analyzing the dataset in R (see analysis.Rmd)
 """
 
 import cPickle
@@ -12,5 +17,8 @@ with open("final_project_dataset.pkl", "r") as f:
 del data_dict['TOTAL']  # Summary row from financial data
 del data_dict['BELFER ROBERT']  # Data incorrectly imported
 
+for name, data in data_dict.iteritems():
+    data["name"] = name
+
 with open("final_project_dataset_cleaned.pkl", "w") as f:
-    cPickle.dump(data_dict, f)
+    cPickle.dump(data_dict.values(), f)
