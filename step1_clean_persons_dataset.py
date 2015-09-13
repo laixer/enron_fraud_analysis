@@ -20,5 +20,8 @@ del data_dict['BELFER ROBERT']  # Data incorrectly imported
 for name, data in data_dict.iteritems():
     data["name"] = name
 
+persons = [person for person in data_dict.values()
+           if person["email_address"] != "NaN"]
+
 with open("final_project_dataset_cleaned.pkl", "w") as f:
-    cPickle.dump(data_dict.values(), f)
+    cPickle.dump(persons, f)
