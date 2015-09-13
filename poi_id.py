@@ -1,25 +1,16 @@
 #!/usr/bin/python
-import email
-import os
-from pprint import pprint
 import string
-
 import sys
 import pickle
-import cPickle
-from sklearn import grid_search
-from sklearn.cross_validation import train_test_split
-from sklearn.pipeline import make_pipeline, Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
-from sklearn.tree import DecisionTreeClassifier
-from nltk.stem import SnowballStemmer
+from sklearn.cross_validation import StratifiedShuffleSplit
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import grid_search, cross_validation
 
 sys.path.append("../tools/")
 
-from feature_format import featureFormat, targetFeatureSplit
-from parse_out_email_text import parseOutText
-
+from feature_format import featureFormat
+from feature_format import targetFeatureSplit
 from tester import test_classifier, dump_classifier_and_data
 
 
@@ -50,84 +41,92 @@ for k, v in data_dict.iteritems():
     else:
         from_this_person_to_poi_pct = str(int(round((float(from_this_person_to_poi) / float(from_messages)) * 10)))
 
+    from_poi_to_this_person = data_dict[k]["from_poi_to_this_person"]
+    to_messages = data_dict[k]["to_messages"]
+    if from_poi_to_this_person == 'NaN' or to_messages == 'NaN':
+        from_poi_to_this_person_pct = 'NaN'
+    else:
+        from_poi_to_this_person_pct = str(int(round((float(from_poi_to_this_person) / float(to_messages)) * 10)))
+
     # print from_this_person_to_poi
     # print from_messages
     # print from_this_person_to_poi_pct
     data_dict[k]["from_this_person_to_poi_pct"] = from_this_person_to_poi_pct
+    data_dict[k]["from_poi_to_this_person_pct"] = from_poi_to_this_person_pct
+    if from_messages != 'NaN' and to_messages != 'NaN':
+        data_dict[k]["message_ratio"] = float(from_messages) / float(to_messages)
+    else:
+        data_dict[k]["message_ratio"] = 'NaN'
+    if data_dict[k]["bonus"] != 'NaN':
+        total_stock_value = data_dict[k]["total_stock_value"]
+        if total_stock_value != 'NaN':
+            total_stock_value = float(total_stock_value)
+        else:
+            total_stock_value = 0
+        data_dict[k]["salary_pct"] = float(data_dict[k]["bonus"]) / (float(data_dict[k]["total_payments"]))
+    else:
+        data_dict[k]["salary_pct"] = 'NaN'
 
 features_list = [
     'poi',
-    # 'deferral_payments',
     'exercised_stock_options',
     'bonus',
     'total_stock_value',
-    'deferred_income'
+    # 'shared_receipt_with_poi',
+    # 'from_messages',
+    # 'to_messages',
+    # 'from_this_person_to_poi',
+    # 'from_this_person_to_poi_pct',
+    # 'from_poi_to_this_person',
+    'from_poi_to_this_person_pct',
+    # 'message_ratio',
+    # 'salary_pct',
 ]
 
 matches = []
 
-poi_email_addresses = set()
-for name, data in data_dict.iteritems():
-    if data['poi']:
-        poi_email_addresses.add(data['email_address'])
-
-print("Loading text data.")
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-
-# v = TfidfVectorizer(stop_words='english')
-# v.fit_transform(word_data, from_data)
-
-            # to_emails.update(to_email)
-            # sys.exit(1)
-
 ### Store to my_dataset for easy export below.
 my_dataset = data_dict
 
-project_email_addresses = list([
-    person_data["email_address"] for person_data in data_dict.values() if person_data["email_address"] != "NaN"])
-
-### Extract features and labels from dataset for local testing
-# data = featureFormat(my_dataset, ["poi", "email_address"], sort_keys = True)
-# labels, features = targetFeatureSplit(data)
-
-email_addresses_train, email_addresses_test = train_test_split(
-    project_email_addresses, test_size=0.33, random_state=42)
-
-email_addresses_test = set(email_addresses_test)
-
-print email_addresses_test
-print email_addresses_train
-
-with open('final_project_emails.pkl', 'rb') as f:
-    project_emails = cPickle.load(f)
-
-non_test_emails = [email for email in project_emails if email_addresses_test.isdisjoint(email["recipients"])]
-
-print "Found %s non-test e-mails (%s)" % (len(non_test_emails), len(non_test_emails) * 100 / float(len(project_emails)))
-
-with open('non_test_emails.pkl', 'wb') as f:
-    cPickle.dump(non_test_emails, f)
-
-from sklearn.naive_bayes import GaussianNB
-# from sklearn.ensemble import RandomForestClassifier
-# rf = RandomForestClassifier()
+rf = RandomForestClassifier()
 # pipeline = Pipeline([
 #     ('scale', StandardScaler()),
 #     ('clf', SVC(verbose=False))])
-#
-# clf = grid_search.GridSearchCV(pipeline, {'clf__C': [1, 10, 100, 1000, 10000]}, n_jobs=8)
-# clf = pipeline
 
-### Task 5: Tune your classifier to achieve better than .3 precision and recall 
+# print("Tuning classifier parameters")
+# data = featureFormat(my_dataset, features_list, sort_keys=True)
+# labels, features = targetFeatureSplit(data)
+#
+#
+# rf_tune = grid_search.GridSearchCV(rf, {'n_estimators': [10, 100, 200, 500, 1000],
+#                                         'max_depth': [None, 10, 100, 1000, 2000, 5000]},
+#                                    n_jobs=-1,
+#                                    cv=StratifiedShuffleSplit(labels, n_iter=1000, random_state = 42))
+#
+#
+#
+# rf_tune.fit(features, labels)
+#
+# print rf_tune.grid_scores_
+# print rf_tune.best_estimator_
+# print rf_tune.best_score_
+# print rf_tune.best_params_
+
+clf = RandomForestClassifier(n_estimators=100, max_depth=1000, random_state=1987341)
+
+### Task 5: Tune your classifier to achieve better than .3 precision and recall
 ### using our testing script.
 ### Because of the small size of the dataset, the script uses stratified
 ### shuffle split cross validation. For more info: 
 ### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
 
-# test_classifier(clf, my_dataset, features_list)
+print("Testing classifier")
 
-### Dump your classifier, dataset, and features_list so 
-### anyone can run/check your results.
+test_classifier(clf, my_dataset, features_list)
+#
+# ### Dump your classifier, dataset, and features_list so
+# ### anyone can run/check your results.
+#
+print("Dumping classifier")
 
-# dump_classifier_and_data(clf, my_dataset, features_list)
+dump_classifier_and_data(clf, my_dataset, features_list)
