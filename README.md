@@ -59,8 +59,10 @@ measure model effectiveness.
 
 # Metrics
 
-Random Forest classifier - Precision: 0.61731	Recall: 0.38150
-SVM classifier -           Precision: 0.40486	Recall: 0.25000
+| Classifier    | Precision | Recall  |
+|---------------|-----------|---------|
+| Random Forest | 0.61731   | 0.38150 |
+| SVM           | 0.40486	| 0.25000 |
 
 The random classifier was right about 62% percent of the time when identifying
 someone as a POI. This is a decent number but probably too low for any serious use.
