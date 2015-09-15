@@ -14,6 +14,37 @@ library(gridExtra)
 enron <- read.csv("final_project_dataset.csv", na.strings = "NaN")
 ```
 
+How many entries are there in the dataset?
+
+```{r}
+people_count = nrow(enron)
+```
+
+The dataset contains 14 financial features and 5 e-mail related features.
+
+How does the data break into into POIs vs non-POIs?
+
+```{r}
+enron %>% 
+  group_by(poi) %>%
+  summarize(count=n()) %>%
+  mutate(prop=count/sum(count))
+```
+
+Let's get some summaries on the features in the dataset.
+
+```{r}
+summary(enron)
+```
+
+Only a small proportion of the entries in the dataset (12.5%) are POIs.
+
+60 entries (~42%) don't have any e-mail data.
+
+Financial data is mixed, ~35% don't have salary data, ~44% don't have bonus data,
+24% don't have restricted stock data but every entry has at least some data under
+either payments or stocks.
+
 ## Financials
 
 ```{r, message=FALSE, fig.width=10}
