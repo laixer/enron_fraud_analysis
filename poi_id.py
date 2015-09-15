@@ -28,11 +28,12 @@ def write_data_dict_to_csv(file):
             person_data_values = list(map(lambda feature: str(person_data[feature]), all_features))
             f.write(person + "," + string.join(person_data_values, ",") + "\n")
 
+# Export dataset in CSV format to make it easier to load into other tools (R, etc)
+write_data_dict_to_csv("final_project_dataset.csv")
+
 ### Task 2: Remove outliers
 del data_dict['TOTAL']  # Summary row from financial data
 del data_dict['BELFER ROBERT']  # Data incorrectly imported
-
-write_data_dict_to_csv("final_project_dataset.csv")
 
 ### Task 3: Create new feature(s)
 for k, v in data_dict.iteritems():
