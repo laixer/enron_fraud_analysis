@@ -13,6 +13,17 @@ of the data set (for person "BELFER ROBERT" appeared to be incorrectly
 shifted column wise). These outliers were removed for the purposes of
 building a POI classifier.
 
+After removing outliers, there are 142 entries remaining in the dataset.
+The dataset, as expected, is skewed towards non-POIs with only about 13% 
+of the people classified POIs. A relatively large proportion (~42%) of
+the people in the dataset don't have any data for the e-mail features.
+The financial data is mixed. Every person has at least one financial 
+feature but individually the amount of values present for a given feature
+varies significantly. It's important to note that the lack of a value for 
+a particular feature doesn't mean it's missing but rather that the person
+didn't have a payment/expense of that type and practically speaking can be
+treated as a 0 value.
+
 The financial and e-mail summary metrics didn't look too interesting to 
 me so I also tried to build a model using the e-mail text data, but
 stopped as it would have required investing a lot more time so the text
