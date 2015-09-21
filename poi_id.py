@@ -1,11 +1,14 @@
 #!/usr/bin/python
+import logging
 import string
 import sys
 import pickle
+import pprint
 from sklearn.cross_validation import StratifiedShuffleSplit
 
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from sklearn import grid_search, cross_validation
+from sklearn.feature_selection import SelectKBest, chi2, RFE
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
@@ -17,16 +20,19 @@ from feature_format import targetFeatureSplit
 from tester import test_classifier, dump_classifier_and_data
 
 
+logging.basicConfig(format='%(levelname)s %(asctime)s %(message)s', level=logging.INFO)
+
+
 ### Load the dictionary containing the dataset
 data_dict = pickle.load(open("final_project_dataset.pkl", "r") )
-
 def write_data_dict_to_csv(file):
     all_features = data_dict["BAXTER JOHN C"].keys()
+
     with open(file, "w") as f:
-        f.write("name," + string.join(all_features, ",") + "\n")
-        for person, person_data in data_dict.iteritems():
-            person_data_values = list(map(lambda feature: str(person_data[feature]), all_features))
-            f.write(person + "," + string.join(person_data_values, ",") + "\n")
+            f.write("name," + string.join(all_features, ",") + "\n")
+            for person, person_data in data_dict.iteritems():
+                person_data_values = list(map(lambda feature: str(person_data[feature]), all_features))
+                f.write(person + "," + string.join(person_data_values, ",") + "\n")
 
 # Export dataset in CSV format to make it easier to load into other tools (R, etc)
 write_data_dict_to_csv("final_project_dataset.csv")
@@ -39,10 +45,10 @@ del data_dict['BELFER ROBERT']  # Data incorrectly imported
 for k, v in data_dict.iteritems():
     from_this_person_to_poi = data_dict[k]["from_this_person_to_poi"]
     from_messages = data_dict[k]["from_messages"]
-
     if from_this_person_to_poi == 'NaN' or from_messages == 'NaN':
         from_this_person_to_poi_pct = 'NaN'
     else:
+        # Divide the data into 10 buckets depending on percentage of emails.
         from_this_person_to_poi_pct = str(int(round((float(from_this_person_to_poi) / float(from_messages)) * 10)))
 
     from_poi_to_this_person = data_dict[k]["from_poi_to_this_person"]
@@ -50,24 +56,18 @@ for k, v in data_dict.iteritems():
     if from_poi_to_this_person == 'NaN' or to_messages == 'NaN':
         from_poi_to_this_person_pct = 'NaN'
     else:
+        # Divide the data into 10 buckets depending on percentage of emails.
         from_poi_to_this_person_pct = str(int(round((float(from_poi_to_this_person) / float(to_messages)) * 10)))
 
-    # print from_this_person_to_poi
-    # print from_messages
-    # print from_this_person_to_poi_pct
     data_dict[k]["from_this_person_to_poi_pct"] = from_this_person_to_poi_pct
     data_dict[k]["from_poi_to_this_person_pct"] = from_poi_to_this_person_pct
     if from_messages != 'NaN' and to_messages != 'NaN':
         data_dict[k]["message_ratio"] = float(from_messages) / float(to_messages)
     else:
         data_dict[k]["message_ratio"] = 'NaN'
-    if data_dict[k]["bonus"] != 'NaN':
-        total_stock_value = data_dict[k]["total_stock_value"]
-        if total_stock_value != 'NaN':
-            total_stock_value = float(total_stock_value)
-        else:
-            total_stock_value = 0
-        data_dict[k]["salary_pct"] = float(data_dict[k]["bonus"]) / (float(data_dict[k]["total_payments"]))
+
+    if data_dict[k]["salary"] != 'NaN':
+        data_dict[k]["salary_pct"] = float(data_dict[k]["salary"]) / (float(data_dict[k]["total_payments"]))
     else:
         data_dict[k]["salary_pct"] = 'NaN'
 
@@ -87,29 +87,218 @@ features_list = [
     # 'salary_pct',
 ]
 
-matches = []
-
 ### Store to my_dataset for easy export below.
 my_dataset = data_dict
 
-rf = RandomForestClassifier()
-svm = Pipeline([
-    ('scale', StandardScaler()),
-    ('clf', SVC(verbose=False, random_state=947619))])
+all_features = data_dict["BAXTER JOHN C"].keys()
+all_features.remove("email_address")
+# make sure poi is the first feature as that's what the provided code assumes
+all_features.remove("poi")
+all_features.insert(0, "poi")
+all_features_data = featureFormat(my_dataset, all_features, sort_keys=True)
+all_features_labels, all_features_features = targetFeatureSplit(all_features_data)
+all_features.remove("poi")
 
-print("Tuning classifier parameters.")
-data = featureFormat(my_dataset, features_list, sort_keys=True)
-labels, features = targetFeatureSplit(data)
-# rf_tune = grid_search.GridSearchCV(rf,
-#                                    {'n_estimators': [10, 100, 200, 500, 1000],
-#                                     'max_depth': [None, 10, 100, 1000, 2000, 5000]},
-#                                    n_jobs=-1,
-#                                    cv=StratifiedShuffleSplit(labels, n_iter=1000, random_state=42),
-#                                    scoring='f1')
-# rf_tune.fit(features, labels)
-# print rf_tune.grid_scores_
-# print rf_tune.best_params_
-# print rf_tune.best_score_
+# print all_features_labels
+#
+# e = ExtraTreesClassifier()
+# e.fit(all_features_features, all_features_labels)
+#
+# print len(all_features)
+# print len(e.feature_importances_)
+# pprint.pprint(sorted(zip(all_features, e.feature_importances_), key=lambda t: t[1], reverse=True))
+#
+# sys.exit(-1)
+
+#
+
+
+def find_best_features_rf(all_feature_names):
+    for k in range(1, len(all_feature_names)):
+        print("Selecting %s best feature(s)" % k)
+
+        feature_selector = SelectKBest(k=k)
+        feature_selector.fit(all_features_features, all_features_labels)
+
+        selected_feature_names = ["poi"]
+        for feature_index in feature_selector.get_support(indices=True):
+            selected_feature_names.append(all_features[feature_index])
+
+        print("Selected features: %s" % selected_feature_names)
+
+        data = featureFormat(my_dataset, selected_feature_names, sort_keys=True)
+        labels, features = targetFeatureSplit(data)
+        rf = RandomForestClassifier(random_state=98123)
+
+        print("Tuning classifier parameters.")
+        rf_tune = grid_search.GridSearchCV(rf,
+                                           {'n_estimators': [10, 100, 200, 500, 1000],
+                                            'max_depth': [None, 10, 100, 1000, 2000, 5000]},
+                                           n_jobs=-1,
+                                           cv=StratifiedShuffleSplit(labels, n_iter=1000, random_state=42),
+                                           scoring='f1')
+        rf_tune.fit(features, labels)
+
+        print("Scores:\n%s" % pprint.pformat(rf_tune.grid_scores_))
+        print("Best parameters: %s with score %s" % (rf_tune.best_params_, rf_tune.best_score_))
+
+        clf = RandomForestClassifier(random_state=1987341, **rf_tune.best_params_)
+
+        print("Testing classifier.")
+
+        test_classifier(clf, my_dataset, selected_feature_names)
+
+        print("\n\n")
+
+def find_best_features_svm(all_feature_names):
+    for k in range(1, len(all_feature_names)):
+        print("Selecting %s best feature(s)" % k)
+
+        feature_selector = SelectKBest(k=k)
+        feature_selector.fit(all_features_features, all_features_labels)
+
+        selected_feature_names = ["poi"]
+        for feature_index in feature_selector.get_support(indices=True):
+            selected_feature_names.append(all_features[feature_index])
+
+        print("Selected features: %s" % selected_feature_names)
+
+        data = featureFormat(my_dataset, selected_feature_names, sort_keys=True)
+        labels, features = targetFeatureSplit(data)
+        clf = Pipeline([
+            ('scale', StandardScaler()),
+            ('clf', SVC(verbose=False, random_state=947619))])
+
+        print("Tuning classifier parameters.")
+        rf_tune = grid_search.GridSearchCV(clf,
+                                           {'clf__C': [10, 100, 1000, 10000],
+                                            'clf__gamma': [0.01, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0]},
+                                           n_jobs=-1,
+                                           cv=StratifiedShuffleSplit(labels, n_iter=1000, random_state=42),
+                                           scoring='recall')
+        rf_tune.fit(features, labels)
+
+        print("Scores:\n%s" % pprint.pformat(rf_tune.grid_scores_))
+        print("Best parameters: %s with score %s" % (rf_tune.best_params_, rf_tune.best_score_))
+
+        params = dict([(p[0][5:], p[1]) for p in rf_tune.best_params_.iteritems()])
+
+        print("Cleaned params: %s", params)
+
+        clf = Pipeline([
+            ('scale', StandardScaler()),
+            ('clf', SVC(verbose=False, random_state=947619, **params))])
+
+        print("Testing classifier.")
+
+        test_classifier(clf, my_dataset, selected_feature_names)
+
+        print("\n\n")
+
+def find_best_features_svm_custom(all_feature_names):
+    selected_feature_names = ["poi"]
+    remaining_features = list(all_feature_names)
+
+    while remaining_features:
+        logging.info("Features selected so far: %s" % selected_feature_names)
+
+        try_features = list(selected_feature_names)
+        feature_scores = []
+        alt_feature_scores = []
+        for pos, try_feature in enumerate(remaining_features):
+            logging.info("Trying out [%s] (%s/%s)" % (try_feature, pos + 1, len(remaining_features)))
+
+            data = featureFormat(my_dataset, try_features + [try_feature], sort_keys=True)
+            labels, features = targetFeatureSplit(data)
+            clf = Pipeline([
+                ('scale', StandardScaler()),
+                ('clf', SVC(verbose=False, random_state=947619))])
+
+            try:
+                logging.info("Tuning classifier parameters.")
+                rf_tune = grid_search.GridSearchCV(clf,
+                                                   {'clf__C': [10, 100, 1000, 10000],
+                                                    'clf__gamma': [0.01, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0]},
+                                                   n_jobs=-1,
+                                                   cv=StratifiedShuffleSplit(labels, n_iter=1000, random_state=42),
+                                                   scoring='f1')
+
+                rf_tune.fit(features, labels)
+
+                logging.info("Scores:\n%s" % pprint.pformat(rf_tune.grid_scores_))
+                logging.info("Best parameters: %s with score %s" % (rf_tune.best_params_, rf_tune.best_score_))
+                feature_scores.append((try_feature, rf_tune.best_score_))
+
+                params = dict([(p[0][5:], p[1]) for p in rf_tune.best_params_.iteritems()])
+
+                logging.info("Cleaned params: %s", params)
+
+                clf = Pipeline([
+                    ('scale', StandardScaler()),
+                    ('clf', SVC(verbose=False, random_state=947619, **params))])
+
+                logging.info("Testing classifier.")
+
+                test_score = test_classifier(clf, my_dataset, try_features + [try_feature])
+
+                logging.info("Test score: %s" % test_score)
+
+                alt_feature_scores.append((try_feature, test_score))
+            except Exception as e:
+                logging.warn("Fit failed: %s" % e)
+                feature_scores.append((try_feature, 0))
+                alt_feature_scores.append((try_feature, 0))
+
+        feature_scores = sorted(feature_scores, key=lambda t: t[1], reverse=True)
+        alt_feature_scores = sorted(alt_feature_scores, key=lambda t: t[1], reverse=True)
+
+        logging.info("Feature scores: %s" % feature_scores)
+        logging.info("Alternative scores: %s" % alt_feature_scores)
+
+        selected_feature = feature_scores[0][0]
+        logging.info("Selected feature: %s" % selected_feature)
+        selected_feature_names.append(selected_feature)
+        remaining_features.remove(selected_feature)
+
+        logging.info("Testing out selected features: %s" % selected_feature_names)
+
+        data = featureFormat(my_dataset, selected_feature_names, sort_keys=True)
+        labels, features = targetFeatureSplit(data)
+        clf = Pipeline([
+            ('scale', StandardScaler()),
+            ('clf', SVC(verbose=False, random_state=947619))])
+
+        logging.info("Tuning classifier parameters.")
+        rf_tune = grid_search.GridSearchCV(clf,
+                                           {'clf__C': [10, 100, 1000, 10000],
+                                            'clf__gamma': [0.01, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0]},
+                                           n_jobs=-1,
+                                           cv=StratifiedShuffleSplit(labels, n_iter=1000, random_state=42),
+                                           scoring='f1')
+        rf_tune.fit(features, labels)
+
+        logging.info("Scores:\n%s" % pprint.pformat(rf_tune.grid_scores_))
+        logging.info("Best parameters: %s with score %s" % (rf_tune.best_params_, rf_tune.best_score_))
+
+        params = dict([(p[0][5:], p[1]) for p in rf_tune.best_params_.iteritems()])
+
+        logging.info("Cleaned params: %s", params)
+
+        clf = Pipeline([
+            ('scale', StandardScaler()),
+            ('clf', SVC(verbose=False, random_state=947619, **params))])
+
+        logging.info("Testing classifier.")
+
+        test_classifier(clf, my_dataset, selected_feature_names)
+
+        print("\n\n")
+
+find_best_features_svm_custom(all_features)
+
+# svm = Pipeline([
+#     ('scale', StandardScaler()),
+#     ('clf', SVC(verbose=False, random_state=947619))])
 
 #
 # [mean: 0.36641, std: 0.33340, params: {'n_estimators': 10, 'max_depth': None},
@@ -151,11 +340,6 @@ labels, features = targetFeatureSplit(data)
 #                                     n_jobs=-1,
 #                                     cv=StratifiedShuffleSplit(labels, n_iter=1000, random_state=42),
 #                                     scoring='f1')
-# svm_tune.fit(features, labels)
-# print svm_tune.grid_scores_
-# print svm_tune.best_params_
-# print svm_tune.best_score_
-
 # [mean: 0.15630, std: 0.28541, params: {'clf__gamma': 0.01, 'clf__C': 10},
 #  mean: 0.12793, std: 0.25452, params: {'clf__gamma': 0.1, 'clf__C': 10},
 #  mean: 0.16422, std: 0.27627, params: {'clf__gamma': 0.2, 'clf__C': 10},
@@ -191,7 +375,7 @@ labels, features = targetFeatureSplit(data)
 # {'clf__gamma': 1.0, 'clf__C': 1000}
 # 0.30283968254
 
-clf = RandomForestClassifier(n_estimators=100, max_depth=100, random_state=1987341)
+# clf = RandomForestClassifier(n_estimators=200, max_depth=None, random_state=1987341)
 # clf = Pipeline([
 #     ('scale', StandardScaler()),
 #     ('clf', SVC(verbose=False, random_state=947619, C=1000))])
@@ -202,9 +386,9 @@ clf = RandomForestClassifier(n_estimators=100, max_depth=100, random_state=19873
 ### shuffle split cross validation. For more info: 
 ### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
 
-print("Testing classifier.")
-
-test_classifier(clf, my_dataset, features_list)
+# print("Testing classifier.")
+#
+# test_classifier(clf, my_dataset, features_list)
 
 # RandomForestClassifier(bootstrap=True, class_weight=None, criterion='gini',
 #                        max_depth=100, max_features='auto', max_leaf_nodes=None,
@@ -228,6 +412,6 @@ test_classifier(clf, my_dataset, features_list)
 # ### Dump your classifier, dataset, and features_list so
 # ### anyone can run/check your results.
 
-print("Dumping classifier.")
-
-dump_classifier_and_data(clf, my_dataset, features_list)
+# print("Dumping classifier.")
+#
+# dump_classifier_and_data(clf, my_dataset, features_list)

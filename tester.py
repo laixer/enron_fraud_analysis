@@ -66,6 +66,7 @@ def test_classifier(clf, dataset, feature_list, folds = 1000):
         print PERF_FORMAT_STRING.format(accuracy, precision, recall, f1, f2, display_precision = 5)
         print RESULTS_FORMAT_STRING.format(total_predictions, true_positives, false_positives, false_negatives, true_negatives)
         print ""
+        return f1
     except:
         print "Got a divide by zero when trying out:", clf
 
