@@ -32,7 +32,7 @@ def test_classifier(clf, features, labels, folds = 1000):
     false_negatives = 0
     true_positives = 0
     false_positives = 0
-    for train_idx, test_idx in cv: 
+    for train_idx, test_idx in cv:
         features_train = []
         features_test  = []
         labels_train   = []
@@ -68,10 +68,10 @@ def test_classifier(clf, features, labels, folds = 1000):
             clf,
             PERF_FORMAT_STRING.format(accuracy, precision, recall, f1, f2, display_precision = 5),
             RESULTS_FORMAT_STRING.format(total_predictions, true_positives, false_positives, false_negatives, true_negatives))
-        return precision, recall
+        return precision, recall, f1
     except:
         logging.warn("Got a divide by zero when trying out:\n%s", clf)
-        return -1, -1
+        return -1, -1, -1
 
 CLF_PICKLE_FILENAME = "my_classifier.pkl"
 DATASET_PICKLE_FILENAME = "my_dataset.pkl"
