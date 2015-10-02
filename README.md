@@ -175,8 +175,19 @@ measure of effectiveness.
 # Validation
 
 Validation is the evaluation of a model on a dataset that was not used as part 
-of the training to measure its effectiveness on new data. I used 
-cross-validation to measure model effectiveness.
+of the training to measure its effectiveness on new data. I used stratified 
+shuffle split cross-validation to measure model effectiveness.
+
+Stratified folds ensure that the labels in the individual folds have proportions
+close to that of the entire dataset. This is important for a small dataset with
+unbalanced classes like this one as without stratification it's highly likely
+that any particular fold might have no POIs in it making it difficult to measure 
+how well the model identifies known POIs.
+ 
+Shuffling makes it possible to obtain a larger number of folds from a small 
+dataset as it's possible to repeatedly draw (mostly) different combinations 
+of entries from the dataset. The number of folds in a regular k-fold, 
+on the other hand, is directly limited by the size the dataset.
 
 # Metrics
 
