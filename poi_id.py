@@ -300,7 +300,7 @@ clf = Pipeline(
 print("Testing classifier.")
 
 feature_indices = [all_feature_names.index(f) for f in features_list if f != 'poi']
-feature_subset = np.array(processed_features)[:, feature_indices]
+feature_subset = np.array(all_features_features)[:, feature_indices]
 
 test_classifier(clf, feature_subset, all_features_labels)
 
