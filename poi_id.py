@@ -287,10 +287,9 @@ features_list = [
     'salary_pct',
 ]
 
-scaler = StandardScaler()
-processed_features = scaler.fit_transform(all_features_features, all_features_labels)
-
-clf = SVC(verbose=False, random_state=947619, C=100, gamma=2.0)
+clf = Pipeline(
+    [('scaler', StandardScaler()),
+     ('svm', SVC(verbose=False, random_state=947619, C=100, gamma=2.0))])
 
 ### Task 5: Tune your classifier to achieve better than .3 precision and recall
 ### using our testing script.
