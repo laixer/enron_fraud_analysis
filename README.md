@@ -180,15 +180,15 @@ cross-validation to measure model effectiveness.
 
 # Metrics
 
-| Precision | 0.82781   |
-| Recall    | 0.56250	|
+| Precision | 0.81797   |
+| Recall    | 0.53700	|
 
-The trained SVM classifier was right about 83% percent of the time when 
+The trained SVM classifier was right about 82% percent of the time when 
 identifying someone as a POI. This is a decent number if someone wanted to 
 identify people worth a closer look, but not high enough to make any 
 immediate conclusions.
 
-The recall was about 56%, which means there's a almost a 50% chance that it 
+The recall was about 54%, which means there's a almost a 50% chance that it 
 would miss identifying a POI as a POI. Due to the relatively low recall score,
 this classifier would not be useful if one was trying to identify as many POIs
 as possible.
