@@ -13,21 +13,19 @@ import logging
 
 import pickle
 import sys
-from sklearn.metrics import precision_score
-from sklearn.metrics import recall_score
 from sklearn.cross_validation import StratifiedShuffleSplit
 sys.path.append("../tools/")
 from feature_format import featureFormat, targetFeatureSplit
+
+logging.basicConfig(format='%(levelname)s %(asctime)s %(message)s', level=logging.INFO)
 
 PERF_FORMAT_STRING = "\
 \tAccuracy: {:>0.{display_precision}f}\tPrecision: {:>0.{display_precision}f}\t\
 Recall: {:>0.{display_precision}f}\tF1: {:>0.{display_precision}f}\tF2: {:>0.{display_precision}f}"
 RESULTS_FORMAT_STRING = "\tTotal predictions: {:4d}\tTrue positives: {:4d}\tFalse positives: {:4d}\tFalse negatives: {:4d}\tTrue negatives: {:4d}"
 
-def test_classifier(clf, features, labels, folds = 1000):
-    # data = featureFormat(dataset, feature_list, sort_keys = True)
-    # labels, features = targetFeatureSplit(data)
-    cv = StratifiedShuffleSplit(labels, folds, random_state = 42)
+def test_classifier(clf, features, labels, folds=1000):
+    cv = StratifiedShuffleSplit(labels, folds, random_state=42)
     true_negatives = 0
     false_negatives = 0
     true_positives = 0
@@ -91,8 +89,10 @@ def load_classifier_and_data():
 def main():
     ### load up student's classifier, dataset, and feature_list
     clf, dataset, feature_list = load_classifier_and_data()
+    data = featureFormat(dataset, feature_list, sort_keys = True)
+    labels, features = targetFeatureSplit(data)
     ### Run testing script
-    test_classifier(clf, dataset, feature_list)
+    test_classifier(clf, features, labels)
 
 if __name__ == '__main__':
     main()
